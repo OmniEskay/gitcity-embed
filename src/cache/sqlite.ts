@@ -1,14 +1,18 @@
 // SQLite persistent cache (Layer 2): survives restarts, 1-hour TTL
-import Database from 'better-sqlite3';
+// better-sqlite3 is loaded lazily via createRequire so that Vercel's bundler
+// never statically imports the native addon (which isn't supported serverless).
+import { createRequire } from 'module';
 import { mkdirSync } from 'fs';
 import { dirname } from 'path';
 import type { CacheEntry } from './index.js';
 import { optionalEnv } from '../utils/env.js';
 
+const IS_VERCEL = !!process.env['VERCEL'];
 const TTL_MS = parseInt(optionalEnv('EMBED_CACHE_TTL_DISK', '3600'), 10) * 1000;
 const DB_PATH = optionalEnv('CACHE_DB_PATH', './data/cache.db');
 
-let db: Database.Database | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let db: any = null;
 
 interface CacheRow {
   key: string;
@@ -19,6 +23,12 @@ interface CacheRow {
 }
 
 export function initSqliteCache(): void {
+  if (IS_VERCEL) return; // Native addons + persistent fs not available serverless
+
+  const _require = createRequire(import.meta.url);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Database = _require('better-sqlite3') as any;
+
   mkdirSync(dirname(DB_PATH), { recursive: true });
   db = new Database(DB_PATH);
 
@@ -39,18 +49,12 @@ export function initSqliteCache(): void {
   }, 10 * 60 * 1000).unref();
 }
 
-function getDb(): Database.Database {
-  if (!db) throw new Error('SQLite cache not initialized — call initSqliteCache() first');
-  return db;
-}
-
 export const sqliteCache = {
   get(key: string): CacheEntry<string> | null {
-    const row = getDb()
-      .prepare<[string, number], CacheRow>(
-        'SELECT * FROM embed_cache WHERE key = ? AND expires_at > ?'
-      )
-      .get(key, Date.now());
+    if (!db) return null;
+    const row = db
+      .prepare('SELECT * FROM embed_cache WHERE key = ? AND expires_at > ?')
+      .get(key, Date.now()) as CacheRow | undefined;
     if (!row) return null;
     return {
       data: row.data,
@@ -61,9 +65,10 @@ export const sqliteCache = {
   },
 
   getStale(key: string): CacheEntry<string> | null {
-    const row = getDb()
-      .prepare<[string], CacheRow>('SELECT * FROM embed_cache WHERE key = ?')
-      .get(key);
+    if (!db) return null;
+    const row = db
+      .prepare('SELECT * FROM embed_cache WHERE key = ?')
+      .get(key) as CacheRow | undefined;
     if (!row) return null;
     return {
       data: row.data,
@@ -74,18 +79,16 @@ export const sqliteCache = {
   },
 
   set(key: string, entry: CacheEntry<string>): void {
-    const ttl = TTL_MS;
-    const expiresAt = Date.now() + ttl;
-    getDb()
-      .prepare(
-        `INSERT INTO embed_cache (key, data, github_etag, cached_at, expires_at)
-         VALUES (?, ?, ?, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET
-           data = excluded.data,
-           github_etag = excluded.github_etag,
-           cached_at = excluded.cached_at,
-           expires_at = excluded.expires_at`
-      )
-      .run(key, entry.data, entry.githubEtag ?? null, entry.cachedAt, expiresAt);
+    if (!db) return;
+    const expiresAt = Date.now() + TTL_MS;
+    db.prepare(
+      `INSERT INTO embed_cache (key, data, github_etag, cached_at, expires_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET
+         data = excluded.data,
+         github_etag = excluded.github_etag,
+         cached_at = excluded.cached_at,
+         expires_at = excluded.expires_at`
+    ).run(key, entry.data, entry.githubEtag ?? null, entry.cachedAt, expiresAt);
   },
 };
