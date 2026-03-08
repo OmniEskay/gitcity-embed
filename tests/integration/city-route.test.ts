@@ -80,4 +80,12 @@ describe('GET /api/city/:username', () => {
     const res = await app.request('/api/city/octocat');
     expect(res.headers.get('cache-control')).toContain('max-age=43200');
   });
+
+  it('returns 502 on GitHub API error', async () => {
+    vi.mocked(getCachedOrFetch).mockRejectedValueOnce(new Error('API down'));
+    const res = await app.request('/api/city/erroruser');
+    expect(res.status).toBe(502);
+    const body = await res.text();
+    expect(body).toContain('GitHub API unavailable');
+  });
 });

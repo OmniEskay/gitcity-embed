@@ -57,4 +57,21 @@ describe('GET /api/card/:username', () => {
     const body = await res.text();
     expect(body).toContain('#ffffff');
   });
+
+  it('returns 304 when ETag matches', async () => {
+    const res1 = await app.request('/api/card/octocat');
+    const etag = res1.headers.get('ETag');
+    const res2 = await app.request('/api/card/octocat', {
+      headers: { 'If-None-Match': etag! },
+    });
+    expect(res2.status).toBe(304);
+  });
+
+  it('returns 502 on GitHub API error', async () => {
+    vi.mocked(getCachedOrFetch).mockRejectedValueOnce(new Error('API down'));
+    const res = await app.request('/api/card/erroruser');
+    expect(res.status).toBe(502);
+    const body = await res.text();
+    expect(body).toContain('GitHub API unavailable');
+  });
 });
