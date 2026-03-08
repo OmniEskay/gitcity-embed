@@ -63,12 +63,15 @@ describe('username validation', () => {
 // Integration tests for validateUsername middleware
 import { Hono } from 'hono';
 import { validateUsername } from '../../src/middleware/validate.js';
+import type { RenderOptions } from '../../src/types/options.js';
+
+type Variables = { validatedUsername: string; renderOptions: RenderOptions };
 
 describe('validateUsername middleware', () => {
-  let app: Hono;
+  let app: Hono<{ Variables: Variables }>;
 
   beforeEach(() => {
-    app = new Hono();
+    app = new Hono<{ Variables: Variables }>();
     app.get('/test/:username', validateUsername({ defaultWidth: 400, defaultHeight: 200 }), (c) => {
       return c.json({
         username: c.get('validatedUsername'),
