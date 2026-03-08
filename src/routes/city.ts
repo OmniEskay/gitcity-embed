@@ -8,11 +8,13 @@ import { computeEtag } from '../utils/etag.js';
 import { GitHubUserNotFoundError } from '../services/github.js';
 import type { CityRenderOptions } from '../types/options.js';
 
-export const cityRoute = new Hono();
+type Variables = { validatedUsername: string; renderOptions: CityRenderOptions };
+
+export const cityRoute = new Hono<{ Variables: Variables }>();
 
 cityRoute.get('/:username', validateUsername({ defaultWidth: 800, defaultHeight: 400 }), async (c) => {
-  const username = c.get('validatedUsername') as string;
-  const options = c.get('renderOptions') as CityRenderOptions;
+  const username = c.get('validatedUsername');
+  const options = c.get('renderOptions');
   const ifNoneMatch = c.req.header('If-None-Match');
 
   try {

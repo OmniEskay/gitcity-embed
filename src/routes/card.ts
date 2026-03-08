@@ -8,11 +8,13 @@ import { computeEtag } from '../utils/etag.js';
 import { GitHubUserNotFoundError } from '../services/github.js';
 import type { RenderOptions } from '../types/options.js';
 
-export const cardRoute = new Hono();
+type Variables = { validatedUsername: string; renderOptions: RenderOptions };
+
+export const cardRoute = new Hono<{ Variables: Variables }>();
 
 cardRoute.get('/:username', validateUsername({ defaultWidth: 400, defaultHeight: 200 }), async (c) => {
-  const username = c.get('validatedUsername') as string;
-  const options = c.get('renderOptions') as RenderOptions;
+  const username = c.get('validatedUsername');
+  const options = c.get('renderOptions');
   const ifNoneMatch = c.req.header('If-None-Match');
 
   try {

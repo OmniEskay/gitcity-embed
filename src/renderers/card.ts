@@ -2,12 +2,13 @@
 import type { GitHubMetrics } from '../types/metrics.js';
 import type { RenderOptions } from '../types/options.js';
 import { themes } from './shared/palette.js';
+import type { Theme } from './shared/palette.js';
 import { escapeSvgText, svgText } from './shared/text.js';
 import { computeLayout } from './shared/layout.js';
 
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
 
-function miniSkyline(metrics: GitHubMetrics, width: number, baseY: number, p: (typeof themes)['dark']): string {
+function miniSkyline(metrics: GitHubMetrics, width: number, baseY: number, p: Theme): string {
   const layout = computeLayout(metrics, { theme: 'dark', width, height: baseY + 10 });
   const parts: string[] = [];
   for (const b of layout.buildings) {
