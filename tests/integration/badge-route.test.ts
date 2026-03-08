@@ -57,4 +57,21 @@ describe('GET /api/badge/:username', () => {
     expect(body).toContain('City Architect');
     expect(body).toContain('Open Source Hero');
   });
+
+  it('returns 304 when ETag matches', async () => {
+    const res1 = await app.request('/api/badge/poweruser');
+    const etag = res1.headers.get('ETag');
+    const res2 = await app.request('/api/badge/poweruser', {
+      headers: { 'If-None-Match': etag! },
+    });
+    expect(res2.status).toBe(304);
+  });
+
+  it('returns 502 on GitHub API error', async () => {
+    vi.mocked(getCachedOrFetch).mockRejectedValueOnce(new Error('API down'));
+    const res = await app.request('/api/badge/erroruser');
+    expect(res.status).toBe(502);
+    const body = await res.text();
+    expect(body).toContain('GitHub API unavailable');
+  });
 });
