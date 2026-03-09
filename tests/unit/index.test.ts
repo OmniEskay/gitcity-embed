@@ -13,11 +13,10 @@ describe('index.ts', () => {
     vi.resetModules();
   });
 
-  it('should fail fast if GITHUB_TOKEN is missing', async () => {
+  it('should initialize app even if GITHUB_TOKEN is missing (validated per-request)', async () => {
     delete process.env['GITHUB_TOKEN'];
-    await expect(async () => {
-      await import('../../src/index.js');
-    }).rejects.toThrow('Missing required env var: GITHUB_TOKEN');
+    const module = await import('../../src/index.js');
+    expect(module.default).toBeDefined();
   });
 
   it('should initialize app with GITHUB_TOKEN present', async () => {
